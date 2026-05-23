@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>山推故障诊断维修记录系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Microsoft YaHei,sans-serif}
+body{background:#f4f6f8;color:#333}
+
+/* 登录 */
+.login{width:460px;margin:80px auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.login h2{text-align:center;margin-bottom:24px;color:#1e5ebe}
+.login input{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:6px}
+.login button{width:100%;padding:12px;background:#1e5ebe;color:#fff;border:none;border-radius:6px;margin-top:8px;cursor:pointer}
+.btn-line{background:#6c757d!important}
+
+/* 主界面 */
+.container{max-width:1400px;margin:0 auto;padding:20px;display:none}
+.header{background:#1e5ebe;color:#fff;padding:16px 20px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.header h1{font-size:18px}
+
+.overview-title{font-size:20px;font-weight:bold;color:#c9373e;text-align:center;margin:16px 0}
+.overview-highlight{background:#fff3cd;padding:10px 16px;border-radius:8px;margin-bottom:16px;border:1px solid #ffeeba}
+.overview-highlight span{font-weight:bold;color:#d93024}
+
+/* 工具栏（带搜索筛选） */
+.toolbar{background:#fff;padding:14px;border-radius:8px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.toolbar .search-group{display:flex;align-items:center;gap:6px}
+.toolbar input{padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:180px}
+.toolbar select,.toolbar button{padding:8px 12px;border:1px solid #ddd;border-radius:6px}
+.toolbar button{background:#1e5ebe;color:#fff;border:none;cursor:pointer}
+.add-btn{color:#1e5ebe;font-size:12px;margin-left:8px;cursor:pointer;text-decoration:underline}
+.del-btn{color:red;font-size:12px;margin-left:8px;cursor:pointer;text-decoration:underline}
+
+/* 表格 */
+.table-box{background:#fff;padding:16px;border-radius:8px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1000px}
+th{background:#edf2fa;color:#1e5ebe;padding:12px;text-align:left;border:1px solid #eee;white-space:nowrap}
+td{padding:10px;border:1px solid #eee;white-space:nowrap}
+.editable{background:#ffffcc;padding:4px;border-radius:3px;cursor:pointer}
+.link{color:#1e5ebe;cursor:pointer;font-weight:bold}
+.highlight{color:#d93024;font-weight:bold}
+
+/* 详情弹窗 */
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;justify-content:center;align-items:center;z-index:999}
+.modal .box{background:#fff;width:900px;max-height:90vh;overflow-y:auto;padding:30px;border-radius:10px;position:relative;/* 新增：为关闭按钮定位做准备 */}
+.modal .title{font-size:16px;color:#1e5ebe;font-weight:bold;text-align:center;margin-bottom:20px;/* 调整：给关闭按钮留出空间 */}
+/* 新增：关闭按钮样式 */
+.close-modal-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  color: #666;
+  transition: all 0.2s;
+}
+.close-modal-btn:hover {
+  background: #ff4444;
+  color: white;
+  border-color: #ff4444;
+}
+.section{margin-bottom:20px}
+.section-title{background:#edf2fa;padding:8px 12px;font-weight:bold;color:#1e5ebe;border-radius:4px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+.row label{min-width:130px;font-weight:bold;color:#444}
+.row input,.row select,.row textarea{flex:1;padding:6px;border:1px solid #ddd;border-radius:4px}
+.row textarea{height:70px;resize:vertical}
+.btns{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.btns button{padding:8px 16px;border-radius:6px;cursor:pointer}
+.btn-cancel{background:#eee;border:1px solid #ccc}
+.btn-save{background:#1e5ebe;color:#fff;border:none}
+
+/* 下拉框操作按钮样式优化 */
+.select-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div class="login" id="login">
+<h2>山推故障诊断维修记录系统</h2>
+<input id="user" placeholder="账号（管理员：admin）">
+<input id="pwd" type="password" placeholder="密码（123456）">
+<button onclick="login()">登录</button>
+<button class="btn-line" onclick="register()">注册账号</button>
+<button class="btn-line" onclick="resetPwd()">修改密码</button>
+</div>
+
+<!-- 主界面 -->
+<div class="container" id="main">
+<div class="header">
+<h1>山推故障诊断维修记录系统</h1>
+<div id="userName">管理员：管廷续</div>
+</div>
+
+<div class="overview-title">📊 故障总体概览</div>
+<div class="overview-highlight">
+重点关注：<span>故障原因</span>、<span>故障类别</span>、<span>故障根因</span>、<span>解决方案</span>
+</div>
+
+<!-- 工具栏（带筛选+新增） -->
+<div class="toolbar">
+  <!-- 人员筛选+新增 -->
+  <div class="search-group">
+    <input type="text" id="searchPerson" placeholder="搜索人员..." oninput="filterSelect(event)">
+    <select id="sPerson"><option value="">全部人员</option></select>
+    <span class="add-btn" onclick="addOption('person')">➕新增</span>
+  </div>
+
+  <!-- 客户筛选+新增 -->
+  <div class="search-group">
+    <input type="text" id="searchClient" placeholder="搜索客户..." oninput="filterSelect(event)">
+    <select id="sClient"><option value="">全部客户</option></select>
+    <span class="add-btn" onclick="addOption('client')">➕新增</span>
+  </div>
+
+  <!-- 功能按钮 -->
+  <button onclick="addQuick()">➕ 新增一行</button>
+  <button onclick="openDetail()">打开详情</button>
+  <button onclick="exportExcel()">导出Excel</button>
+</div>
+
+<!-- 主列表（已移除故障现象分类列，故障现象调用详情界面的故障现象分类） -->
+<div class="table-box">
+<table>
+<thead>
+<tr>
+<th>序号</th>
+<th>服务人员</th>
+<th>出差日期</th>
+<th>客户类型</th>
+<th>设备机型</th>
+<th>故障现象</th>
+<th>故障类别</th>
+<th class="highlight">解决方式</th>
+<th>处理状态</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody id="listBody"></tbody>
+</table>
+</div>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="modal" id="detailModal">
+<div class="box">
+<!-- 新增：关闭按钮 -->
+<button class="close-modal-btn" onclick="closeModal()">×</button>
+<div class="title">故障诊断详情（完整记录）</div>
+
+<!-- 1. 基础信息 -->
+<div class="section">
+<div class="section-title">一、基础信息</div>
+<div class="row">
+<label>服务人员</label>
+<select id="dPerson">
+<option>张三</option><option>李四</option><option>王五</option>
+</select>
+<div class="select-actions">
+  <span class="add-btn" onclick="addOption('person')">➕新增</span>
+  <span class="del-btn" onclick="deleteOption('person')">❌删除</span>
+</div>
+</div>
+<div class="row">
+<label>出差日期</label>
+<input type="date" id="dDate">
+</div>
+<div class="row">
+<label>出差地点</label>
+<input id="dTripLocation" placeholder="请输入出差地点">
+</div>
+<div class="row">
+<label>客户全称</label>
+<input id="dClientFullName" placeholder="请输入客户全称">
+</div>
+<div class="row">
+<label>客户类型</label>
+<select id="dClient">
+<option>矿山开采</option><option>道路修筑</option><option>机场修筑</option><option>智慧农田</option>
+</select>
+<div class="select-actions">
+  <span class="add-btn" onclick="addOption('client')">➕新增</span>
+  <span class="del-btn" onclick="deleteOption('client')">❌删除</span>
+</div>
+</div>
+</div>
+
+<!-- 2. 设备信息 -->
+<div class="section">
+<div class="section-title">二、设备信息</div>
+<div class="row">
+<label>设备机型</label>
+<select id="dMachine">
+<option>推土机</option><option>平地机</option><option>挖机</option><option>压路机</option><option>摊铺机</option><option>矿卡</option><option>无人设备</option><option>辅助施工设备</option>
+</select>
+<div class="select-actions">
+  <span class="add-btn" onclick="addOption('machine')">➕新增</span>
+  <span class="del-btn" onclick="deleteOption('machine')">❌删除</span>
+</div>
+</div>
+<div class="row">
+<label>设备编号</label>
+<input id="dMachineCode" placeholder="可选填写">
+</div>
+<div class="row">
+<label>设备运行时长</label>
+<input id="dMachineHours" placeholder="单位：小时">
+</div>
+<div class="row">
+<label>设备运行地点</label>
+<input id="dInstallAddr" placeholder="详细地址">
+</div>
+</div>
+
+<!-- 3. 故障信息 -->
+<div class="section">
+<div class="section-title">
+三、故障信息
+<span class="add-btn" onclick="addFaultCategory()">➕新增故障所属大类</span>
+</div>
+
+<!-- 调整顺序：故障大类 → 故障零部件分类 -->
+<div class="row">
+<label>故障所属大类</label>
+<select id="dType">
+<option>智能零部件故障</option><option>通讯/信号故障</option><option>控制系统故障</option><option>软件程序故障</option><option>硬件电气故障</option><option>安装调试故障</option>
+</select>
+<div class="select-actions">
+  <span class="add-btn" onclick="addOption('faultCategory')">➕新增</span>
+  <span class="del-btn" onclick="deleteOption('faultCategory')">❌删除</span>
+</div>
+</div>
+
+<div class="row">
+<label>故障零部件名称</label>
+<input id="dPart" placeholder="请输入具体产品号和产品名称（如：RTK天线-北斗 X300、TBOX终端-4G T500）">
+</div>
+
+<div class="row">
+<label>涉及的硬件版本</label>
+<input id="dHardwareVersion" placeholder="请输入硬件版本号">
+</div>
+<div class="row">
+<label>涉及的软件版本</label>
+<input id="dSoftwareVersion" placeholder="请输入软件版本">
+</div>
+<div class="row">
+<label>涉及的智能系统</label>
+<input id="dSystemName" placeholder="请输入智能系统名称，例如辅助施工系统/远程遥控系统/无人施工系统/视觉雷达感知类系统">
+</div>
+
+<div class="row">
+<label>故障详情分类</label>
+<input id="dFaultDescType" placeholder="请直接输入故障简要现象分类（如：设备不联网、设备启动、RTK定位异常、信号异常、仪表黑屏等）">
+</div>
+
+<div class="row">
+<label>详细故障描述</label>
+<textarea id="dDesc" placeholder="详细描述故障现象"></textarea>
+</div>
+
+<div class="row">
+<label>故障严重程度</label>
+<input id="dLevel" placeholder="轻微/一般/严重/致命">
+</div>
+<div class="row">
+<label>故障发生时间</label>
+<input type="datetime-local" id="dFaultTime">
+</div>
+</div>
+
+<!-- 4. 故障诊断记录 -->
+<div class="section">
+<div class="section-title">四、诊断排查</div>
+<div class="row">
+<label>排查工具</label>
+<select id="dTool">
+<option>万用表</option><option>信号测试仪</option><option>诊断电脑</option><option>北斗测试软件</option><option>示波器</option><option>频谱分析仪</option>
+</select>
+<div class="select-actions">
+  <span class="add-btn" onclick="addOption('tool')">➕新增</span>
+  <span class="del-btn" onclick="deleteOption('tool')">❌删除</span>
+</div>
+</div>
+<div class="row">
+<label>排查人员</label>
+<input id="dChecker" placeholder="多人用逗号分隔">
+</div>
+<div class="row">
+<label style="align-self:flex-start;">排查步骤</label>
+<textarea id="dCheckSteps" placeholder="请输入详细排查步骤和记录的关键数据" style="height:100px;"></textarea>
+</div>
+<div class="row">
+<label>故障根因</label>
+<textarea id="dRootCause" placeholder="深入分析根本原因"></textarea>
+</div>
+</div>
+
+<!-- 5. 解决方案 -->
+<div class="section">
+<div class="section-title">五、解决方案</div>
+<div class="row">
+<label>解决方式</label>
+<input id="dSolveType" placeholder="零部件更换、软件升级、线束修复等">
+</div>
+<div class="row">
+<label>详细方案描述</label>
+<textarea id="dSolvePlan" placeholder="详细解决方案" class="highlight"></textarea>
+</div>
+<div class="row">
+<label>更换零部件名称</label>
+<input id="dReplacePart" placeholder="产品型号和产品名称，多个用逗号分隔">
+</div>
+<div class="row">
+<label>程序升级版本信息</label>
+<input id="dUpgradeVersion" placeholder="请输入升级后的程序版本和本次版本升级内容">
+</div>
+<div class="row">
+<label>故障解决验证方案</label>
+<textarea id="dVerifyPlan" placeholder="请输入验证方案" style="height:80px;"></textarea>
+</div>
+<div class="row">
+<label>方案验证时长</label>
+<input id="dVerifyDuration" placeholder="72小时、15天、1个月等">
+</div>
+<!-- 新增处理状态子类 -->
+<div class="row">
+<label>处理状态</label>
+<input id="dResult" placeholder="如：待处理、处理中、已解决、验证中、已关闭等" class="editable">
+</div>
+</div>
+
+<!-- 6. 故障总结 -->
+<div class="section">
+<div class="section-title">六、故障总结</div>
+<div class="row">
+<label>故障共性分析</label>
+<textarea id="dCommonAnalysis" placeholder="分析是否为批量问题、共性特征等"></textarea>
+</div>
+<div class="row">
+<label>内部存在问题</label>
+<textarea id="dInternalWeakness" placeholder="分析内部在技术、流程、培训等方面的不足"></textarea>
+</div>
+<div class="row">
+<label>短期改进方案</label>
+<textarea id="dShortTermMeasures" placeholder="针对本次故障的短期应对措施"></textarea>
+</div>
+<div class="row">
+<label>长期改进方案</label>
+<textarea id="dLongTermPlan" placeholder="从产品设计、流程优化等方面提出长期改进方案"></textarea>
+</div>
+<div class="row">
+<label>故障预防建议</label>
+<textarea id="dPreventionSuggestion" placeholder="提出预防类似故障的建议"></textarea>
+</div>
+</div>
+
+<!-- 操作按钮 -->
+<div class="btns">
+<button class="btn-cancel" onclick="closeModal()">取消</button>
+<button class="btn-save" onclick="saveDetail()">保存记录</button>
+<input type="hidden" id="editId">
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// 存储数据
+let store = {
+  users: JSON.parse(localStorage.getItem('faultUsers')) || [
+    {account:'admin', pwd:'123456', name:'管廷续', role:'admin'}
+  ],
+  options: JSON.parse(localStorage.getItem('faultOptions')) || {
+    person: ['张三','李四','王五','赵六','钱七'],
+    client: ['矿山开采','道路修筑','机场修筑','智慧农田'],
+    machine: ['推土机','平地机','挖机','压路机','摊铺机','矿卡','无人设备','辅助施工设备'],
+    part: ['RTK天线（北斗）','TBOX终端（4G）','智能仪表','域控制器','传感器','操作手柄'], // 保留历史数据兼容
+    tool: ['万用表','信号测试仪','诊断电脑','北斗测试软件','示波器','频谱分析仪'],
+    faultDesc: ['定位漂移','设备离线','黑屏无显示','指令不响应','数据异常'],
+    faultCategory: ['智能零部件故障','通讯/信号故障','控制系统故障','软件程序故障','硬件电气故障','安装调试故障'],
+    systemName: ['智能控制系统','北斗定位系统','4G通讯系统','无人作业系统']
+  },
+  faults: JSON.parse(localStorage.getItem('faultData')) || []
+};
+
+// 工具函数
+const $ = id => document.getElementById(id);
+const saveStore = () => {
+  localStorage.setItem('faultUsers', JSON.stringify(store.users));
+  localStorage.setItem('faultOptions', JSON.stringify(store.options));
+  localStorage.setItem('faultData', JSON.stringify(store.faults));
+};
+
+let currentUser = null;
+
+// 登录
+function login() {
+  const account = $('user').value.trim();
+  const pwd = $('pwd').value.trim();
+  const user = store.users.find(u => u.account === account && u.pwd === pwd);
+  
+  if (!user) {
+    alert('账号或密码错误（管理员：admin/123456）');
+    return;
+  }
+  
+  currentUser = user;
+  $('login').style.display = 'none';
+  $('main').style.display = 'block';
+  $('userName').innerText = `${user.role === 'admin' ? '管理员' : '服务人员'}：${user.name}`;
+  
+  initSelects();
+  renderList();
+}
+
+function register() {
+  const account = prompt('请输入新账号：');
+  if (!account) return;
+  const pwd = prompt('请输入密码：');
+  if (!pwd) return;
+  const name = prompt('请输入姓名：');
+  if (!name) return;
+  
+  if (store.users.some(u => u.account === account.trim())) {
+    alert('账号已存在');
+    return;
+  }
+  
+  store.users.push({ account: account.trim(), pwd: pwd.trim(), name: name.trim(), role: 'user' });
+  saveStore();
+  alert('注册成功！');
+}
+
+function resetPwd() {
+  const account = $('user').value.trim();
+  const oldPwd = $('pwd').value.trim();
+  const newPwd = prompt('请输入新密码：');
+  
+  if (!account || !oldPwd || !newPwd) {
+    alert('信息不能为空');
+    return;
+  }
+  
+  const user = store.users.find(u => u.account === account && u.pwd === oldPwd);
+  if (!user) {
+    alert('原账号或密码错误');
+    return;
+  }
+  
+  user.pwd = newPwd.trim();
+  saveStore();
+  alert('密码修改成功！');
+}
+
+// 下拉框初始化
+function initSelects() {
+  fillSelect('sPerson', store.options.person);
+  fillSelect('sClient', store.options.client);
+  fillSelect('dTool', store.options.tool, '');
+  fillSelect('dType', store.options.faultCategory, '');
+}
+
+function fillSelect(selectId, options, defaultOption = '全部') {
+  const select = $(selectId);
+  if (!select) return;
+  select.innerHTML = defaultOption ? `<option value="">${defaultOption}</option>` : '';
+  options.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt;
+    option.innerText = opt;
+    select.appendChild(option);
+  });
+}
+
+function filterSelect(e) {
+  const input = e.target;
+  const selectId = input.id.replace('search', 's');
+  const type = selectId.replace('s', '').toLowerCase();
+  const options = store.options[type] || [];
+  const filtered = options.filter(opt => opt.toLowerCase().includes(input.value.toLowerCase()));
+  fillSelect(selectId, filtered);
+}
+
+// 增删选项
+function addOption(type) {
+  const name = prompt(`请输入新增${getTypeName(type)}：`);
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (store.options[type].includes(trimmed)) {
+    alert('已存在');
+    return;
+  }
+  store.options[type].push(trimmed);
+  saveStore();
+
+  switch(type) {
+    case 'person': fillSelect('sPerson', store.options.person); fillSelect('dPerson', store.options.person, ''); break;
+    case 'client': fillSelect('sClient', store.options.client); fillSelect('dClient', store.options.client, ''); break;
+    case 'machine': fillSelect('dMachine', store.options.machine, ''); break;
+    case 'tool': fillSelect('dTool', store.options.tool, ''); break;
+    case 'faultCategory': fillSelect('dType', store.options.faultCategory, ''); break;
+  }
+  alert('新增成功！');
+}
+
+function deleteOption(type) {
+  const typeMap = {
+    person: 'dPerson', client: 'dClient', machine: 'dMachine',
+    tool: 'dTool', faultCategory: 'dType'
+  };
+  if (!typeMap[type]) { alert('不支持删除'); return; }
+  const select = $(typeMap[type]);
+  const val = select.value;
+  if (!val) { alert('请先选择'); return; }
+  if (!confirm('确定删除？')) return;
+  
+  store.options[type] = store.options[type].filter(i => i !== val);
+  saveStore();
+
+  switch(type) {
+    case 'person': fillSelect('sPerson', store.options.person); fillSelect('dPerson', store.options.person, ''); break;
+    case 'client': fillSelect('sClient', store.options.client); fillSelect('dClient', store.options.client, ''); break;
+    case 'machine': fillSelect('dMachine', store.options.machine, ''); break;
+    case 'tool': fillSelect('dTool', store.options.tool, ''); break;
+    case 'faultCategory': fillSelect('dType', store.options.faultCategory, ''); break;
+  }
+  alert('删除成功！');
+}
+
+function addFaultCategory() { addOption('faultCategory'); }
+
+function getTypeName(type) {
+  const map = {
+    person:'服务人员', client:'客户类型', machine:'设备机型',
+    tool:'排查工具', faultCategory:'故障所属大类', systemName:'智能系统'
+  };
+  return map[type] || type;
+}
+
+// 主列表渲染（故障现象列调用故障现象分类内容）
+function renderList() {
+  const pFilter = $('sPerson').value;
+  const cFilter = $('sClient').value;
+  let data = store.faults;
+  if (pFilter) data = data.filter(f => f.person === pFilter);
+  if (cFilter) data = data.filter(f => f.client === cFilter);
+
+  let html = '';
+  data.forEach((f, i) => {
+    const idx = store.faults.indexOf(f);
+    // 故障现象优先取故障现象分类内容，兼容旧数据的desc字段
+    const faultDisplay = f.faultDescType || f.desc || '';
+    // 处理状态显示
+    const statusDisplay = f.result || '';
+    // 处理状态文字颜色区分
+    let statusColor = 'green';
+    if (statusDisplay.includes('待处理')) statusColor = 'orange';
+    if (statusDisplay.includes('处理中')) statusColor = 'blue';
+    if (statusDisplay.includes('已解决') || statusDisplay.includes('已关闭')) statusColor = 'green';
+    if (statusDisplay.includes('异常') || statusDisplay.includes('失败')) statusColor = 'red';
+    
+    html += `<tr>
+      <td>${i+1}</td>
+      <td onclick="editCell(${idx},'person')" class="editable">${f.person||''}</td>
+      <td onclick="editCell(${idx},'date')" class="editable">${f.date||''}</td>
+      <td onclick="editCell(${idx},'client')" class="editable">${f.client||''}</td>
+      <td onclick="editCell(${idx},'machine')" class="editable">${f.machine||''}</td>
+      <td onclick="editCell(${idx},'faultDescType')" class="editable">${faultDisplay}</td>
+      <td onclick="editCell(${idx},'type')" class="editable">${f.type||''}</td>
+      <td onclick="editCell(${idx},'solveType')" class="editable highlight">${f.solveType||''}</td>
+      <td onclick="editCell(${idx},'result')" class="editable" style="color:${statusColor}">${statusDisplay}</td>
+      <td>
+        <span class="link" onclick="openDetail(${idx})">详情</span>
+        ${currentUser?.role==='admin'?`<span onclick="delFault(${idx})" style="color:red;cursor:pointer;margin-left:6px">删除</span>`:''}
+      </td>
+    </tr>`;
+  });
+  $('listBody').innerHTML = html;
+}
+
+function addQuick() {
+  store.faults.push({
+    person:'', date:'', client:'', machine:'', faultDescType:'', desc:'', type:'', solveType:'', result:''
+  });
+  saveStore();
+  renderList();
+}
+
+function editCell(idx, key) {
+  const f = store.faults[idx];
+  const v = prompt(`修改${getCellName(key)}`, f[key]||'');
+  if (v === null) return;
+  f[key] = v;
+  saveStore();
+  renderList();
+}
+
+function getCellName(key) {
+  const map = {
+    person:'服务人员', date:'出差日期', client:'客户类型', machine:'设备机型',
+    faultDescType:'故障详情分类',
+    desc:'详细故障描述',
+    type:'故障所属大类',
+    solveType:'解决方式',
+    result:'处理状态'
+  };
+  return map[key] || key;
+}
+
+function delFault(idx) {
+  if (!confirm('确定删除？')) return;
+  store.faults.splice(idx,1);
+  saveStore();
+  renderList();
+}
+
+// 详情弹窗
+function openDetail(idx = null) {
+  if (idx === null) {
+    $('editId').value = '';
+    fillSelect('dPerson', store.options.person, '');
+    fillSelect('dClient', store.options.client, '');
+    fillSelect('dMachine', store.options.machine, '');
+    fillSelect('dTool', store.options.tool, '');
+    fillSelect('dType', store.options.faultCategory, '');
+
+    $('dPerson').value = '';
+    $('dDate').value = new Date().toISOString().slice(0,10);
+    $('dTripLocation').value = '';
+    $('dClientFullName').value = '';
+    $('dClient').value = '';
+    $('dMachine').value = '';
+    $('dMachineCode').value = '';
+    $('dMachineHours').value = '';
+    $('dInstallAddr').value = '';
+    $('dType').value = '';
+    $('dPart').value = '';
+    $('dHardwareVersion').value = '';
+    $('dSoftwareVersion').value = '';
+    $('dSystemName').value = '';
+    $('dFaultDescType').value = '';
+    $('dDesc').value = '';
+    $('dLevel').value = '';
+    $('dFaultTime').value = new Date().toISOString().slice(0,16);
+    $('dTool').value = '';
+    $('dChecker').value = currentUser?.name || '';
+    $('dCheckSteps').value = '';
+    $('dRootCause').value = '';
+    $('dSolveType').value = '';
+    $('dSolvePlan').value = '';
+    $('dReplacePart').value = '';
+    $('dUpgradeVersion').value = '';
+    $('dVerifyPlan').value = '';
+    $('dVerifyDuration').value = '';
+    $('dResult').value = '';
+    $('dCommonAnalysis').value = '';
+    $('dInternalWeakness').value = '';
+    $('dShortTermMeasures').value = '';
+    $('dLongTermPlan').value = '';
+    $('dPreventionSuggestion').value = '';
+  } else {
+    const f = store.faults[idx];
+    $('editId').value = idx;
+
+    fillSelect('dPerson', store.options.person, '');
+    fillSelect('dClient', store.options.client, '');
+    fillSelect('dMachine', store.options.machine, '');
+    fillSelect('dTool', store.options.tool, '');
+    fillSelect('dType', store.options.faultCategory, '');
+
+    $('dPerson').value = f.person || '';
+    $('dDate').value = f.date || '';
+    $('dTripLocation').value = f.tripLocation || '';
+    $('dClientFullName').value = f.clientFullName || '';
+    $('dClient').value = f.client || '';
+    $('dMachine').value = f.machine || '';
+    $('dMachineCode').value = f.machineCode || '';
+    $('dMachineHours').value = f.machineHours || '';
+    $('dInstallAddr').value = f.installAddr || '';
+    $('dType').value = f.type || '';
+    $('dPart').value = f.part || '';
+    $('dHardwareVersion').value = f.hardwareVersion || '';
+    $('dSoftwareVersion').value = f.softwareVersion || '';
+    $('dSystemName').value = f.systemName || '';
+    $('dFaultDescType').value = f.faultDescType || '';
+    $('dDesc').value = f.desc || '';
+    $('dLevel').value = f.level || '';
+    $('dFaultTime').value = f.faultTime || '';
+    $('dTool').value = f.tool || '';
+    $('dChecker').value = f.checker || '';
+    $('dCheckSteps').value = f.checkSteps || '';
+    $('dRootCause').value = f.rootCause || '';
+    $('dSolveType').value = f.solveType || '';
+    $('dSolvePlan').value = f.solvePlan || '';
+    $('dReplacePart').value = f.replacePart || '';
+    $('dUpgradeVersion').value = f.upgradeVersion || '';
+    $('dVerifyPlan').value = f.verifyPlan || '';
+    $('dVerifyDuration').value = f.verifyDuration || '';
+    $('dResult').value = f.result || '';
+    $('dCommonAnalysis').value = f.commonAnalysis || '';
+    $('dInternalWeakness').value = f.internalWeakness || '';
+    $('dShortTermMeasures').value = f.shortTermMeasures || '';
+    $('dLongTermPlan').value = f.longTermPlan || '';
+    $('dPreventionSuggestion').value = f.preventionSuggestion || '';
+  }
+  $('detailModal').style.display = 'flex';
+}
+
+function saveDetail() {
+  const idx = $('editId').value;
+  const f = {
+    person: $('dPerson').value.trim(),
+    date: $('dDate').value.trim(),
+    tripLocation: $('dTripLocation').value.trim(),
+    clientFullName: $('dClientFullName').value.trim(),
+    client: $('dClient').value.trim(),
+    machine: $('dMachine').value.trim(),
+    machineCode: $('dMachineCode').value.trim(),
+    machineHours: $('dMachineHours').value.trim(),
+    installAddr: $('dInstallAddr').value.trim(),
+    type: $('dType').value.trim(),
+    part: $('dPart').value.trim(),
+    hardwareVersion: $('dHardwareVersion').value.trim(),
+    softwareVersion: $('dSoftwareVersion').value.trim(),
+    systemName: $('dSystemName').value.trim(),
+    faultDescType: $('dFaultDescType').value.trim(),
+    desc: $('dDesc').value.trim(),
+    level: $('dLevel').value.trim(),
+    faultTime: $('dFaultTime').value.trim(),
+    tool: $('dTool').value.trim(),
+    checker: $('dChecker').value.trim(),
+    checkSteps: $('dCheckSteps').value.trim(),
+    rootCause: $('dRootCause').value.trim(),
+    solveType: $('dSolveType').value.trim(),
+    solvePlan: $('dSolvePlan').value.trim(),
+    replacePart: $('dReplacePart').value.trim(),
+    upgradeVersion: $('dUpgradeVersion').value.trim(),
+    verifyPlan: $('dVerifyPlan').value.trim(),
+    verifyDuration: $('dVerifyDuration').value.trim(),
+    result: $('dResult').value.trim(),
+    commonAnalysis: $('dCommonAnalysis').value.trim(),
+    internalWeakness: $('dInternalWeakness').value.trim(),
+    shortTermMeasures: $('dShortTermMeasures').value.trim(),
+    longTermPlan: $('dLongTermPlan').value.trim(),
+    preventionSuggestion: $('dPreventionSuggestion').value.trim()
+  };
+
+  if (!f.person || !f.date || !f.client || !f.machine || !f.desc) {
+    alert('服务人员、日期、客户、设备、详细故障描述为必填项');
+    return;
+  }
+
+  if (idx === '') store.faults.push(f);
+  else store.faults[Number(idx)] = f;
+
+  saveStore();
+  closeModal();
+  renderList();
+  alert('保存成功！');
+}
+
+function closeModal() {
+  $('detailModal').style.display = 'none';
+}
+
+// 导出Excel（故障现象列使用故障现象分类内容）
+function exportExcel() {
+  if (store.faults.length === 0) { alert('暂无数据'); return; }
+  const data = store.faults.map(f => ({
+    '服务人员':f.person||'',
+    '出差日期':f.date||'',
+    '客户类型':f.client||'',
+    '设备机型':f.machine||'',
+    '故障所属大类':f.type||'',
+    '故障零部件名称':f.part||'',
+    '故障详情分类':f.faultDescType||f.desc||'',
+    '解决方式':f.solveType||'',
+    '处理状态':f.result||'',
+    '验证方案':f.verifyPlan||'',
+    '验证时长':f.verifyDuration||''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '故障记录');
+  XLSX.writeFile(wb, '故障诊断记录.xlsx');
+}
+
+window.onload = function(){
+  $('sPerson')?.addEventListener('change', renderList);
+  $('sClient')?.addEventListener('change', renderList);
+}
+</script>
+</body>
+</html>
